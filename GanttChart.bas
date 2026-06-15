@@ -7,6 +7,7 @@ Private Const DEFAULT_FIRST_DATE_COL As Long = 19
 Private Const SHAPE_PREFIX As String = "GanttShape_"
 Private Const LOG_SHAPE_NAME As String = "DrawingOverlay"
 Private Const TASK_ROW_HEIGHT As Double = 13.5
+Private Const TASK_END_ROW_CELL As String = "K3"
 
 Public Sub DrawGantt()
     Dim ws As Worksheet
@@ -104,12 +105,32 @@ Private Function GetFirstDateCol(ByVal ws As Worksheet) As Long
 End Function
 
 Private Function GetLastTaskRow(ByVal ws As Worksheet) As Long
+    Dim configuredLastRow As Long
+    configuredLastRow = GetConfiguredLastTaskRow(ws)
+    If configuredLastRow > 0 Then
+        GetLastTaskRow = configuredLastRow
+        Exit Function
+    End If
+
     Dim lastCandidate As Long, r As Long
     lastCandidate = Application.Max(FIRST_TASK_ROW, ws.Cells(ws.Rows.Count, "B").End(xlUp).Row, ws.Cells(ws.Rows.Count, "C").End(xlUp).Row, ws.Cells(ws.Rows.Count, "D").End(xlUp).Row, ws.Cells(ws.Rows.Count, "E").End(xlUp).Row, ws.Cells(ws.Rows.Count, "F").End(xlUp).Row, ws.Cells(ws.Rows.Count, "G").End(xlUp).Row, ws.Cells(ws.Rows.Count, "H").End(xlUp).Row, ws.Cells(ws.Rows.Count, "I").End(xlUp).Row, ws.Cells(ws.Rows.Count, "J").End(xlUp).Row, ws.Cells(ws.Rows.Count, "K").End(xlUp).Row, ws.Cells(ws.Rows.Count, "M").End(xlUp).Row, ws.Cells(ws.Rows.Count, "N").End(xlUp).Row, ws.Cells(ws.Rows.Count, "O").End(xlUp).Row, ws.Cells(ws.Rows.Count, "Q").End(xlUp).Row)
     For r = lastCandidate To FIRST_TASK_ROW Step -1
         If RowHasTaskInput(ws, r) Then GetLastTaskRow = r: Exit Function
     Next r
     GetLastTaskRow = FIRST_TASK_ROW
+End Function
+
+Private Function GetConfiguredLastTaskRow(ByVal ws As Worksheet) As Long
+    Dim configuredValue As Variant
+    configuredValue = ws.Range(TASK_END_ROW_CELL).Value
+
+    If Not IsNumeric(configuredValue) Then Exit Function
+    If CLng(configuredValue) < FIRST_TASK_ROW Then Exit Function
+    If CLng(configuredValue) > ws.Rows.Count Then
+        GetConfiguredLastTaskRow = ws.Rows.Count
+    Else
+        GetConfiguredLastTaskRow = CLng(configuredValue)
+    End If
 End Function
 
 Private Function RowHasTaskInput(ByVal ws As Worksheet, ByVal rowNo As Long) As Boolean
