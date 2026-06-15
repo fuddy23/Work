@@ -113,7 +113,29 @@ Private Function GetLastTaskRow(ByVal ws As Worksheet) As Long
 End Function
 
 Private Function RowHasTaskInput(ByVal ws As Worksheet, ByVal rowNo As Long) As Boolean
-    RowHasTaskInput = Len(Trim$(CStr(ws.Cells(rowNo, "B").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "C").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "D").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "E").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "F").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "G").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "H").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "I").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "J").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "K").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "M").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "N").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "O").Value))) > 0 Or Len(Trim$(CStr(ws.Cells(rowNo, "Q").Value))) > 0
+    RowHasTaskInput = _
+        HasCellInput(ws.Cells(rowNo, "B")) Or _
+        HasCellInput(ws.Cells(rowNo, "C")) Or _
+        HasCellInput(ws.Cells(rowNo, "D")) Or _
+        HasCellInput(ws.Cells(rowNo, "E")) Or _
+        HasCellInput(ws.Cells(rowNo, "F")) Or _
+        HasCellInput(ws.Cells(rowNo, "G")) Or _
+        HasCellInput(ws.Cells(rowNo, "H")) Or _
+        HasCellInput(ws.Cells(rowNo, "I")) Or _
+        HasCellInput(ws.Cells(rowNo, "J")) Or _
+        HasCellInput(ws.Cells(rowNo, "K")) Or _
+        HasCellInput(ws.Cells(rowNo, "M")) Or _
+        HasCellInput(ws.Cells(rowNo, "N")) Or _
+        HasCellInput(ws.Cells(rowNo, "O")) Or _
+        HasCellInput(ws.Cells(rowNo, "Q"))
+End Function
+
+Private Function HasCellInput(ByVal targetCell As Range) As Boolean
+    If targetCell.MergeCells Then
+        HasCellInput = Len(Trim$(CStr(targetCell.MergeArea.Cells(1, 1).Value))) > 0
+    Else
+        HasCellInput = Len(Trim$(CStr(targetCell.Value))) > 0
+    End If
 End Function
 
 Private Sub NormalizeRows(ByVal ws As Worksheet)
@@ -310,9 +332,14 @@ Private Sub DrawTaskLine(ByVal ws As Worksheet, ByVal taskRow As Long, ByVal sta
 End Sub
 
 Private Function GetRowLaneY(ByVal ws As Worksheet, ByVal taskRow As Long, ByVal firstDateCol As Long, ByVal lanePosition As Double) As Double
-    Dim rowHeight As Double, centerOffset As Double
-    rowHeight = ws.Cells(taskRow, firstDateCol).Height: centerOffset = lanePosition - (TASK_ROW_HEIGHT / 2)
-    GetRowLaneY = ws.Cells(taskRow, firstDateCol).Top + (rowHeight / 2) + centerOffset
+    Dim rowTop As Double, rowHeight As Double
+    rowTop = ws.Cells(taskRow, firstDateCol).Top
+    rowHeight = ws.Cells(taskRow, firstDateCol).Height
+
+    If lanePosition < 1 Then lanePosition = 1
+    If lanePosition > rowHeight - 1 Then lanePosition = rowHeight - 1
+
+    GetRowLaneY = rowTop + lanePosition
 End Function
 
 Private Function FindDateColumn(ByVal ws As Worksheet, ByVal targetDate As Date, ByVal firstDateCol As Long, ByVal lastDateCol As Long) As Long
@@ -326,11 +353,24 @@ End Function
 Private Sub DrawTodayLine(ByVal ws As Worksheet, ByVal firstDateCol As Long, ByVal lastDateCol As Long, ByVal lastTaskRow As Long)
     Dim todayCol As Long: todayCol = FindDateColumn(ws, Date, firstDateCol, lastDateCol)
     If todayCol = 0 Then Exit Sub
-    Dim shp As Shape, xPos As Double
+    Dim shp As Shape, xPos As Double, y1 As Double, y2 As Double
     xPos = ws.Cells(DATE_HEADER_ROW, todayCol).Left + ws.Cells(DATE_HEADER_ROW, todayCol).Width / 2
-    Set shp = ws.Shapes.AddLine(xPos, ws.Cells(DATE_HEADER_ROW, todayCol).Top, xPos, ws.Cells(lastTaskRow, todayCol).Top + ws.Cells(lastTaskRow, todayCol).Height)
+    y1 = ws.Cells(DATE_HEADER_ROW, todayCol).Top
+    y2 = GetChartBottomY(ws, todayCol, lastTaskRow)
+    Set shp = ws.Shapes.AddLine(xPos, y1, xPos, y2)
     shp.Name = SHAPE_PREFIX & "Today": shp.Line.ForeColor.RGB = RGB(220, 38, 38): shp.Line.Weight = 2.5: shp.Placement = xlMoveAndSize
 End Sub
+
+Private Function GetChartBottomY(ByVal ws As Worksheet, ByVal targetCol As Long, ByVal lastTaskRow As Long) As Double
+    Dim r As Long
+    For r = lastTaskRow To FIRST_TASK_ROW Step -1
+        If Not ws.Rows(r).Hidden Then
+            GetChartBottomY = ws.Cells(r, targetCol).Top + ws.Cells(r, targetCol).Height
+            Exit Function
+        End If
+    Next r
+    GetChartBottomY = ws.Cells(lastTaskRow, targetCol).Top + ws.Cells(lastTaskRow, targetCol).Height
+End Function
 
 Private Sub RefreshCalendarColors(ByVal ws As Worksheet)
     Dim firstDateCol As Long, lastDateCol As Long, lastTaskRow As Long, c As Long, d As Date, headerRange As Range, holidayMap As Object
